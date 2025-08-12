@@ -31,12 +31,12 @@
 
 <script>
 (function () {
-  // 1) URL path에서 code 추출: /invite/{code}
+  // URL path에서 code 추출: /invite/{code}
   const path = window.location.pathname.replace(/\/+$/, '');
   const parts = path.split('/');
   const code = parts.length >= 3 ? parts[2] : null;
 
-  // 2) 연락처(클릭 시 팝업) — 실제 값으로 바꿔서 배포
+  // 연락처 — 네 정보로 바꿔서 쓰기
   const CONTACTS = [
     { label: 'Telegram', value: '@vanjichook' },
     { label: 'Signal',   value: 'signal.me/#p/8210XXXXXXX' },
@@ -48,46 +48,58 @@
     alert('연락처\n\n' + lines + '\n\n이 화면은 다시 열리지 않을 수 있습니다. 꼭 저장해 주세요.');
   }
 
-  // 3) 서버로 1회 체크 요청
-  async function checkOnce() {
+  // ▼ 변경 핵심: 페이지 로드시엔 아무 것도 차단하지 않음
+  //    '대화를 이어가기' 버튼을 눌렀을 때만 1회 소진 처리
+
+  async function onContactClick(e) {
+    e.preventDefault();
     if (!code) {
-      // 코드 없으면 만료 페이지로
+      // 코드가 없는 URL로 들어온 경우는 만료 페이지로
       location.replace('/expired.html');
       return;
     }
+
+    // 중복 클릭 방지
+    const btn = document.getElementById('cta');
+    btn.setAttribute('disabled', 'true');
+
     try {
+      // 첫 클릭 시에만 사용 처리(문서가 없으면 생성하고 허용, 있으면 410)
       const resp = await fetch(`/api/visit?code=${encodeURIComponent(code)}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' }
       });
 
       if (resp.status === 200) {
-        // 첫 방문: 허용
-        const data = await resp.json();
-        if (data.allowed) {
-          // 로컬 쿠키/스토리지도 세팅(보조적 방어)
-          document.cookie = `invite_${code}=seen; path=/; SameSite=Lax; max-age=31536000`;
-          localStorage.setItem(`invite_${code}`, 'seen');
+        // 성공적으로 1회 소진 기록됨 → 연락처 보여주고 잠시 뒤 만료 페이지로
+        showContacts();
 
-          // CTA 클릭 시 연락처 노출
-          document.getElementById('cta').addEventListener('click', function (e) {
-            e.preventDefault();
-            showContacts();
-            // 연락처 노출 뒤, 새로고침/재방문 시 만료되도록 안내
-          });
-          return;
-        }
+        // 로컬 마커(보조 방어) — 같은 브라우저에서 재방문 시 만료 유도
+        document.cookie = `invite_${code}=used; path=/; SameSite=Lax; max-age=31536000`;
+        localStorage.setItem(`invite_${code}`, 'used');
+
+        // 3초 뒤 만료 페이지로 이동
+        setTimeout(() => {
+          location.replace('/expired.html');
+        }, 3000);
+        return;
       }
 
-      // 이미 사용(410) 또는 기타
+      // 이미 사용된 코드(410) → 바로 만료
+      if (resp.status === 410) {
+        location.replace('/expired.html');
+        return;
+      }
+
+      // 그 외 에러 → 보수적으로 만료 처리
       location.replace('/expired.html');
     } catch (err) {
-      // 에러 시 보수적으로 만료 처리
       location.replace('/expired.html');
     }
   }
 
-  checkOnce();
+  // 버튼 핸들러 연결
+  document.getElementById('cta').addEventListener('click', onContactClick);
 })();
 </script>
 </body>
