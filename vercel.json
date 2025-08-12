@@ -1,10 +1,6 @@
 {
   "version": 2,
-  "public": true,
   "routes": [
-    {
-      "src": "^/invite/([A-Za-z0-9_-]+)$",
-      "dest": "/invite.html"
-    }
+    { "src": "^/invite/([A-Za-z0-9_-]+)$", "dest": "/invite.html" }
   ]
 }
