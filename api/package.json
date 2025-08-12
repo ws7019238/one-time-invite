@@ -1,0 +1,8 @@
+{
+  "name": "one-time-invite",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "firebase-admin": "^12.6.0"
+  }
+}
